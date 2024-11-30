@@ -1,0 +1,38 @@
+name: Publish Docker Images
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 7 * * *"
+
+jobs:
+  push-to-docker-hub:
+
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        shell: bash
+
+    strategy:
+      matrix:
+        frankenphp: ['1.3.3-php8.3', '1.3.3-php8.4']
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v3
+
+      - name: Pull Cache Image
+        run: docker pull corbosman/frankenphp-laravel:${{matrix.frankenphp}} || true
+
+      - name: Build Frankenphp ${{matrix.frankenphp}}
+        run: docker build -t frankenphp-laravel:${{matrix.frankenphp}} --pull --cache-from corbosman/frankenphp-laravel:${{matrix.frankenphp}} .
+
+      - name: Push Images
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo ${{ secrets.DOCKER_HUB_PASSWORD }} | docker login -u corbosman --password-stdin
+          docker tag frankenphp-laravel:${{matrix.frankenphp}} corbosman/frankenphp-laravel:${{matrix.frankenphp}}
+          docker push corbosman/frankenphp-laravel:${{matrix.frankenphp}}
